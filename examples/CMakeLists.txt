@@ -36,6 +36,7 @@ target_link_libraries (spi_max7219 mraa)
 target_link_libraries (iio_driver mraa)
 
 add_subdirectory (c++)
+add_subdirectory (imraa)
 
 install (DIRECTORY ${PROJECT_SOURCE_DIR}/examples/ DESTINATION ${CMAKE_INSTALL_DATADIR}/mraa/examples)
 
