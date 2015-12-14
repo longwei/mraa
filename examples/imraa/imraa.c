@@ -26,6 +26,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <json-c/json.h>
 
 #include <yaml.h>
 
@@ -53,14 +56,26 @@ print_command_error()
     exit(EXIT_FAILURE);
 }
 
+struct mraa_io_objects_t
+{
+    char* type;
+    int index;
+    bool raw;
+    char* label;
+};
+
 int
 main(int argc, char** argv)
 {
+    char* buffer = NULL;
+    char* imraa_conf_file = IMRAA_CONF_FILE;
+    long fsize;
+    int i = 0;
+    uint32_t ionum = 0;
+    
     if (argc > 2) {
         print_command_error();
     }
-
-    char* imraa_conf_file = IMRAA_CONF_FILE;
 
     if (argc > 1) {
         if (strcmp(argv[1], "help") == 0) {
@@ -78,46 +93,67 @@ main(int argc, char** argv)
         return EXIT_FAILURE;
     }
 
-    yaml_token_t token;
-    yaml_parser_t parser;
-
-    /* Initialize parser */
-    if (!yaml_parser_initialize(&parser)) {
-        fprintf(stderr, "Failed to initialize parser!\n");
-        fclose(fh);
-        return EXIT_FAILURE;
+    fseek (fh, 0, SEEK_END);
+    fsize = ftell (fh) + 1;
+    fseek (fh, 0, SEEK_SET);
+    buffer = calloc (fsize, sizeof (char));
+    if (buffer != NULL) {
+        fread (buffer, sizeof (char), fsize, fh);
     }
 
-    /* Set input file */
-    yaml_parser_set_input_file(&parser, fh);
+    json_object* jobj = json_tokener_parse(buffer);
 
-    do {
-        yaml_parser_scan(&parser, &token);
-        switch(token.type) {
-            /* Stream start/end */
-            case YAML_STREAM_START_TOKEN: puts("STREAM START"); break;
-            case YAML_STREAM_END_TOKEN:   puts("STREAM END");   break;
-            /* Token types (read before actual token) */
-            case YAML_KEY_TOKEN:   printf("(Key token)   "); break;
-            case YAML_VALUE_TOKEN: printf("(Value token) "); break;
-            /* Block delimeters */
-            case YAML_BLOCK_SEQUENCE_START_TOKEN: puts("<b>Start Block (Sequence)</b>"); break;
-            case YAML_BLOCK_ENTRY_TOKEN:          puts("<b>Start Block (Entry)</b>");    break;
-            case YAML_BLOCK_END_TOKEN:            puts("<b>End block</b>");              break;
-            /* Data */
-            case YAML_BLOCK_MAPPING_START_TOKEN:  puts("[Block mapping]");            break;
-            case YAML_SCALAR_TOKEN:  printf("scalar %s \n", token.data.scalar.value); break;
-            /* Others */
-            default:
-                printf("Got token of type %d\n", token.type);
+    struct json_object* imraa_version;
+    if (json_object_object_get_ex(jobj, "version", &imraa_version) == true) {
+        if (json_object_is_type(imraa_version, json_type_string)) {
+            printf("imraa version is %s\n", json_object_get_string(imraa_version));
+        } else {
+            fprintf(stderr, "version string incorrectly parsed\n");
         }
-    if(token.type != YAML_STREAM_END_TOKEN)
-        yaml_token_delete(&token);
-    } while(token.type != YAML_STREAM_END_TOKEN);
+    }
 
-    // cleanup
-    yaml_token_delete(&token);
-    yaml_parser_delete(&parser);
+    struct mraa_io_objects_t* mraaobjs;
+
+    struct json_object* ioarray;
+    if (json_object_object_get_ex(jobj, "IO", &ioarray) == true) {
+        ionum = json_object_array_length(ioarray);
+        mraaobjs = malloc(ioarray*sizeof(mraa_io_objects_t));
+        printf("Length of IO array is %d\n", ionum);
+        if (json_object_is_type(ioarray, json_type_array)) {
+            for (i = 0; i < ionum; i++) {
+                struct json_object* ioobj = json_object_array_get_idx(ioarray, i);
+                struct json_object* x;
+                if (json_object_object_get_ex(ioobj, "type", &x) == true) {
+                    mraaobjs[i].type = json_object_get_string(x);
+                }
+                if (json_object_object_get_ex(ioobj, "index", &x) == true) {
+                    mraaobjs[i].index = json_object_get_int(x);
+                }
+                if (json_object_object_get_ex(ioobj, "raw", &x) == true) {
+                    mraaobjs[i].raw = json_object_get_boolean(x);
+                }
+                if (json_object_object_get_ex(ioobj, "label", &x) == true) {
+                    mraaobjs[i].index = json_object_get_int(x);
+                }
+#if 0
+                json_object_object_foreach(ioobj, key, val) {
+                    fprintf(stderr, "key: %s\n", key);
+                    if (strncmp(key, "type", 4) == 0) {
+                        if (strncmp(val, "gpio", 4) == 0) {
+                            printf("gpio\n");
+                        } else if (strncmp(val, "i2c", 3) == 0) {
+                            printf("gpio\n");
+                        }
+                    }
+                }
+#endif
+            }
+        } else {
+            fprintf(stderr, "IO array incorrectly parsed\n");
+        }
+        //printf("jobj from str:\n---\n%s\n---\n", json_object_to_json_string_ext(ioarray, JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY));
+    }
+    
     fclose(fh);
 
     return EXIT_SUCCESS;
