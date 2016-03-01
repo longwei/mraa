@@ -30,16 +30,16 @@
 #include <stdbool.h>
 #include <json-c/json.h>
 
-#include <yaml.h>
+//#include "mock_gpio.h.h"
+//#include <mraa/gpio.h>
 
-#include <mraa/gpio.h>
-
-#define IMRAA_CONF_FILE "/etc/imraa.conf"
+#define IMRAA_CONF_FILE "/Users/longwei/imraa.conf"
+#define IMRAA_LOCK_FILE "/Users/longwei/imraa.lock"
 
 void
 print_version()
 {
-    fprintf(stdout, "Version %s on %s\n", mraa_get_version(), mraa_get_platform_name());
+//    fprintf(stdout, "Version %s on %s\n", mraa_get_version(), mraa_get_platform_name());
 }
 
 void
@@ -56,13 +56,14 @@ print_command_error()
     exit(EXIT_FAILURE);
 }
 
-struct mraa_io_objects_t
+typedef struct mraa_io_objects_t
 {
     char* type;
     int index;
     bool raw;
     char* label;
-};
+} mraa_io_objects_t;
+
 
 int
 main(int argc, char** argv)
@@ -72,7 +73,7 @@ main(int argc, char** argv)
     long fsize;
     int i = 0;
     uint32_t ionum = 0;
-    
+
     if (argc > 2) {
         print_command_error();
     }
@@ -117,7 +118,7 @@ main(int argc, char** argv)
     struct json_object* ioarray;
     if (json_object_object_get_ex(jobj, "IO", &ioarray) == true) {
         ionum = json_object_array_length(ioarray);
-        mraaobjs = malloc(ioarray*sizeof(mraa_io_objects_t));
+        mraaobjs = malloc(sizeof(ioarray) * sizeof(mraa_io_objects_t));
         printf("Length of IO array is %d\n", ionum);
         if (json_object_is_type(ioarray, json_type_array)) {
             for (i = 0; i < ionum; i++) {
@@ -135,14 +136,15 @@ main(int argc, char** argv)
                 if (json_object_object_get_ex(ioobj, "label", &x) == true) {
                     mraaobjs[i].index = json_object_get_int(x);
                 }
-#if 0
+#if 1
                 json_object_object_foreach(ioobj, key, val) {
-                    fprintf(stderr, "key: %s\n", key);
+//                    fprintf(stderr, "key: %s\n", key);
+//                    fprintf(stderr, "val: %s\n", json_object_get_string(val));
                     if (strncmp(key, "type", 4) == 0) {
-                        if (strncmp(val, "gpio", 4) == 0) {
+                        if (strncmp(json_object_get_string(val), "gpio", 4) == 0) {
                             printf("gpio\n");
-                        } else if (strncmp(val, "i2c", 3) == 0) {
-                            printf("gpio\n");
+                        } else if (strncmp(json_object_get_string(val), "i2c", 3) == 0) {
+                            printf("i2c\n");
                         }
                     }
                 }
@@ -153,7 +155,7 @@ main(int argc, char** argv)
         }
         //printf("jobj from str:\n---\n%s\n---\n", json_object_to_json_string_ext(ioarray, JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY));
     }
-    
+
     fclose(fh);
 
     return EXIT_SUCCESS;
