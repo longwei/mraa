@@ -33,7 +33,7 @@
 #include <mraa/gpio.h>
 
 #define IMRAA_CONF_FILE "/etc/imraa.conf"
-// #define IMRAA_LOCK_FILE "/Users/longwei/imraa.lock"
+#define IMRAA_LOCK_FILE "/tmp/imraa.lock"
 
 void
 print_version()
@@ -57,7 +57,7 @@ print_command_error()
 
 typedef struct mraa_io_objects_t
 {
-    char* type;
+    const char* type;
     int index;
     bool raw;
     char* label;
@@ -143,8 +143,8 @@ main(int argc, char** argv)
                     if (strncmp(key, "type", 4) == 0) {
                         if (strncmp(json_object_get_string(val), "gpio", 4) == 0) {
                             printf("set up gpio and context owner for blink_onboard example\n");
-                            mraa_gpio_context mux = mraa_gpio_init(13);
-                            mraa_result_t  r = mraa_gpio_owner(mux, 0);
+                            mraa_gpio_context gpio = mraa_gpio_init(13);
+                            mraa_result_t  r = mraa_gpio_owner(gpio, 0);
                             if (r != MRAA_SUCCESS) {
                                 mraa_result_print(r);
                             }
@@ -163,5 +163,34 @@ main(int argc, char** argv)
     }
 
     fclose(fh);
+
+
+//TODO JSON-C should not escape forward slash when Stringify, BUG?
+//    json_object *jstring = json_object_new_string("/dev/ttyACM0");
+//    printf ("%s\n",json_object_to_json_string_ext(jstring, JSON_C_TO_STRING_PLAIN));
+
+    json_object * platform1 = json_object_new_object();
+    json_object_object_add(platform1,"id", json_object_new_string("0"));
+    json_object_object_add(platform1,"Platform", json_object_new_string("NULL_PLATFORM"));
+
+    json_object * platform2 = json_object_new_object();
+    json_object_object_add(platform2,"id", json_object_new_string("255"));
+    json_object_object_add(platform2,"Platform", json_object_new_string("GENERIC_FIRMATA"));
+    json_object_object_add(platform2,"uart", json_object_new_string("/dev/ttyACM0"));
+
+    json_object *platfroms = json_object_new_array();
+    json_object_array_add(platfroms,platform1);
+    json_object_array_add(platfroms,platform2);
+    json_object * lock_file = json_object_new_object();
+    json_object_object_add(lock_file,"Platform", platfroms);
+
+    // printf ("output JSON: \n %s",json_object_to_json_string_ext(lock_file, JSON_C_TO_STRING_PRETTY));
+
+    fh = fopen(IMRAA_LOCK_FILE, "w");
+    if (fh != NULL)
+    {
+        fputs(json_object_to_json_string_ext(lock_file, JSON_C_TO_STRING_PRETTY), fh);
+        fclose(fh);
+    }
     return EXIT_SUCCESS;
 }
