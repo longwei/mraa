@@ -29,17 +29,16 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <json-c/json.h>
+ 
+#include <mraa/gpio.h>
 
-//#include "mock_gpio.h.h"
-//#include <mraa/gpio.h>
-
-#define IMRAA_CONF_FILE "/Users/longwei/imraa.conf"
-#define IMRAA_LOCK_FILE "/Users/longwei/imraa.lock"
+#define IMRAA_CONF_FILE "/etc/imraa.conf"
+// #define IMRAA_LOCK_FILE "/Users/longwei/imraa.lock"
 
 void
 print_version()
 {
-//    fprintf(stdout, "Version %s on %s\n", mraa_get_version(), mraa_get_platform_name());
+   fprintf(stdout, "Version %s on %s\n", mraa_get_version(), mraa_get_platform_name());
 }
 
 void
@@ -63,7 +62,6 @@ typedef struct mraa_io_objects_t
     bool raw;
     char* label;
 } mraa_io_objects_t;
-
 
 int
 main(int argc, char** argv)
@@ -101,6 +99,8 @@ main(int argc, char** argv)
     if (buffer != NULL) {
         fread (buffer, sizeof (char), fsize, fh);
     }
+
+    imraa_init();
 
     json_object* jobj = json_tokener_parse(buffer);
 
@@ -142,7 +142,13 @@ main(int argc, char** argv)
 //                    fprintf(stderr, "val: %s\n", json_object_get_string(val));
                     if (strncmp(key, "type", 4) == 0) {
                         if (strncmp(json_object_get_string(val), "gpio", 4) == 0) {
-                            printf("gpio\n");
+                            printf("set up gpio and context owner for blink_onboard example\n");
+                            mraa_gpio_context mux = mraa_gpio_init(13);
+                            mraa_result_t  r = mraa_gpio_owner(mux, 0);
+                            if (r != MRAA_SUCCESS) {
+                                mraa_result_print(r);
+                            }
+
                         } else if (strncmp(json_object_get_string(val), "i2c", 3) == 0) {
                             printf("i2c\n");
                         }
@@ -157,6 +163,5 @@ main(int argc, char** argv)
     }
 
     fclose(fh);
-
     return EXIT_SUCCESS;
 }

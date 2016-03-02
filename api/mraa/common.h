@@ -78,6 +78,14 @@ mraa_result_t mraa_init() __attribute__((constructor));
 #endif
 
 /**
+ * Initialise MRAA from imraa
+ * 
+ * TODO
+ */
+mraa_result_t imraa_init();
+
+
+/**
  * De-Initilise MRAA
  *
  * This is not a strict requirement but useful to test memory leaks and for
