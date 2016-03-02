@@ -84,6 +84,17 @@ mraa_init()
 {
     if (plat != NULL) {
         return MRAA_ERROR_PLATFORM_ALREADY_INITIALISED;
+    } else {
+        return imraa_init();
+    }
+}
+
+mraa_result_t
+imraa_init()
+{
+    printf("mraa_int\n");
+    if (plat != NULL) {
+        return MRAA_ERROR_PLATFORM_ALREADY_INITIALISED;
     }
 
     uid_t proc_euid = geteuid();
