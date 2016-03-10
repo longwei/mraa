@@ -8,6 +8,27 @@
 #include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <termios.h>
+
+#define BAUDRATE B1200
+
+int reset_ping(const char* modem)
+{
+    struct termios options;
+    int uart_fd;
+    options.c_cflag |= (CLOCAL | CREAD);
+    cfsetospeed(&options,BAUDRATE);
+    cfsetispeed(&options,BAUDRATE);
+    if((uart_fd = open(modem , O_RDWR | O_NONBLOCK)) == -1){
+        printf("Error while opening uart %s \n", modem);
+        return -1;
+    }
+    tcsetattr(uart_fd,TCSANOW,&options);
+    close(uart_fd);
+    return EXIT_SUCCESS;
+}
+
 
 int main(int argc,char *argv[]) {
     printf("starting download script\n");
@@ -25,74 +46,29 @@ int main(int argc,char *argv[]) {
         printf("bin img file: %s\n", bin_file_name);
         printf("serial port: %s\n", com_port);
     }
-
-
-    bool board_found = false;
+    
     size_t bin_path_len = strlen(bin_path);
-    const char* dfu_list = "/dfu-util -d,8087:0ABA -l";
-    char* full_dfu_list = (char*) malloc (bin_path_len
-                                              + strlen(dfu_list) + 1);
-    strncat(full_dfu_list, bin_path, strlen(bin_path));
-    strncat(full_dfu_list, dfu_list, strlen(dfu_list));
-    printf("%s\n",full_dfu_list);
-
-    char *ln = NULL;
-    size_t len = 0;
-
-    for(int i = 0; i < 10 && board_found == false; i++) {
-        printf("Waiting for device...\n");
-        //dfu-util -d,8087:0ABA -l
-        FILE* dfu_result = popen(full_dfu_list, "r");
-        if (dfu_result == NULL) {
-            printf("Failed to run command\n");
-            exit(1);
-        }
-
-        if (i == 4) {
-            printf("Flashing is taking longer than expected\n");
-            printf("Try pressing MASTER_RESET button\n");
-        }
-
-        while (getline(&ln, &len, dfu_result) != -1){
-            if(strstr(ln, "sensor_core")) {
-                board_found = true;
-                printf("Device found!\n");
-                break;
-            }
-        }
-        sleep(1);
-        if (pclose (dfu_result) != 0) {
-            printf("Failed to close command\n");
-            exit(1);
-        }
-    }
-    free(ln);
-
-    if (board_found == false) {
-        printf("ERROR: Device is not responding.\n");
-        exit(1);
-    }
-
     const char* dfu_upload = "/dfu-util -d,8087:0ABA -D ";
     const char* dfu_option = " -v -a 7 -R";
     char* full_dfu_upload = (char*) malloc (bin_path_len
-        + strlen(dfu_list)+ strlen(dfu_option) + strlen(bin_file_name) + 1);
+        + strlen(dfu_upload)+ strlen(dfu_option) + strlen(bin_file_name) + 1);
     strncat(full_dfu_upload, bin_path, strlen(bin_path));
     strncat(full_dfu_upload, dfu_upload, strlen(dfu_upload));
     strncat(full_dfu_upload, bin_file_name, strlen(bin_file_name));
     strncat(full_dfu_upload, dfu_option, strlen(dfu_option));
-
     if (verbosity) {
-        printf("uploading...%s\n",full_dfu_upload);
+        printf("%s\n",full_dfu_upload);
     }
-    //dfu-util -d,8087:0ABA -D ~/blink_test.ino.bin -v -a 7 -R
+    printf("Forcing reset using 1200bps open/close on port %s\n", com_port);
+    reset_ping(com_port);
+    sleep(1);
     int status = system(full_dfu_upload);
     free(full_dfu_upload);
-    free(full_dfu_list);
     if (status != 0) {
-        printf("ERROR: Upload failed on %s", com_port);
+        printf("ERROR: Upload failed on %s\n", com_port);
         exit(1);
     }
     printf("SUCCESS: Sketch will execute in about 5 seconds.\n");
+    sleep(5);
     return 0;
 }
