@@ -126,6 +126,7 @@ add_library (mraa ${mraa_LIB_SRCS})
 
 
 target_link_libraries (mraa ${mraa_LIBS})
+target_link_libraries (mraa json-c)
 
 set_target_properties(
    mraa

@@ -296,3 +296,13 @@ typedef struct {
     struct _iio* iio_devices; /**< Pointer to IIO devices */
     uint8_t iio_device_count; /**< IIO device count */
 } mraa_iio_info_t;
+
+/**
+ * A Structure representing a subplatform lock info.
+ */
+
+typedef struct mraa_subplatform_lock_t{
+    int id;
+    mraa_platform_t type;
+    const char *uart;
+} mraa_subplatform_lock_t;
