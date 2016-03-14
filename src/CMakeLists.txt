@@ -122,6 +122,17 @@ set (mraa_LIB_GLOB_HEADERS
   ${PROJECT_SOURCE_DIR}/api/mraa.hpp
 )
 
+add_library (mraa ${mraa_LIB_SRCS})
+target_link_libraries (mraa ${mraa_LIBS})
+target_link_libraries (mraa json-c)
+
+set_target_properties(
+   mraa
+   PROPERTIES
+   SOVERSION ${mraa_VERSION_MAJOR}
+   VERSION ${mraa_VERSION_STRING}
+)
+
 install (FILES ${mraa_LIB_GLOB_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install (DIRECTORY ${PROJECT_SOURCE_DIR}/api/mraa/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/mraa)
 
