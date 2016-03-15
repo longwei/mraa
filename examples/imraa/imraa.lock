@@ -1,0 +1,13 @@
+{
+  "Platform":[
+    {
+      "id":"0",
+      "type":"NULL_PLATFORM"
+    },
+    {
+      "id":"255",
+      "type":"GENERIC_FIRMATA",
+      "uart":"\/dev\/ttyACM0"
+    }
+  ]
+}
