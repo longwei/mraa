@@ -160,7 +160,7 @@ imraa_init()
     const char* subplatform_lockfile = "/tmp/imraa.lock";
     if (access(subplatform_lockfile, F_OK) != -1 ){
         printf("detect lockfile, adding subplatform\n");
-        mraa_subplatform_lock_t *mraaobjs = readlockfile(subplatform_lockfile);
+        mraa_subplatform_lock_t *mraaobjs = mraa_read_lock_file(subplatform_lockfile);
         int i;
         if (mraaobjs != NULL) {
             for(i = 0; i < sizeof(mraaobjs); i++) {
@@ -919,7 +919,7 @@ mraa_add_subplatform(mraa_platform_t subplatformtype, const char* uart_dev)
 
 
 struct mraa_subplatform_lock_t*
-readlockfile(const char* imraa_lock_file) {
+mraa_read_lock_file(const char* imraa_lock_file) {
     char* buffer = NULL;
     long fsize;
     int i = 0;

@@ -292,7 +292,7 @@ mraa_result_t mraa_add_subplatform(mraa_platform_t subplatformtype, const char* 
  * caller is responsible to free return struct array
  */
 
-struct mraa_subplatform_lock_t* readlockfile(const char* imraa_lock_file);
+struct mraa_subplatform_lock_t* mraa_read_lock_file(const char* imraa_lock_file);
 
 #ifdef __cplusplus
 }

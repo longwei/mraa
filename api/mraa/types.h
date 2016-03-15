@@ -242,7 +242,15 @@ typedef enum {
 	MRAA_UART_PARITY_SPACE = 4
 } mraa_uart_parity_t;
 
+/**
+ * A Structure representing a subplatform lock info.
+ */
 
+typedef struct mraa_subplatform_lock_t{
+    int id;
+    mraa_platform_t type;
+    const char *uart;
+} mraa_subplatform_lock_t;
 
 #ifdef __cplusplus
 }
