@@ -109,6 +109,7 @@ endif ()
 if (FIRMATA)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DFIRMATA=1")
   add_subdirectory (firmata)
+  set (mraa_LIBS ${mraa_LIBS} json-c)
 endif ()
 
 set (mraa_LIB_SRCS
@@ -124,7 +125,6 @@ set (mraa_LIB_GLOB_HEADERS
 
 add_library (mraa ${mraa_LIB_SRCS})
 target_link_libraries (mraa ${mraa_LIBS})
-target_link_libraries (mraa json-c)
 
 set_target_properties(
    mraa
