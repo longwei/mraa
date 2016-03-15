@@ -1,0 +1,6 @@
+[Unit]
+Description=imraa
+
+[Service]
+Type=oneshot
+ExecStart=/home/longwei/Intel-IoT/mraa/build/examples/imraa/imraa
