@@ -95,7 +95,7 @@ mraa_init()
 mraa_result_t
 imraa_init()
 {
-    printf("mraa_int\n");
+    printf("imraa_int\n");
     if (plat != NULL) {
         return MRAA_ERROR_PLATFORM_ALREADY_INITIALISED;
     }
@@ -138,19 +138,6 @@ imraa_init()
             plat->platform_name = "Unknown platform";
         }
     }
-    mraa_subplatform_lock_t *mraaobjs = readlockfile("/tmp/");
-    int i;
-    if (mraaobjs != NULL) {
-        for(i = 0; i < sizeof(mraaobjs); i++) {
-            if( mraaobjs[i].id != 0) {
-                mraa_result_t subplatform_ready = (mraa_add_subplatform(mraaobjs[i].type, mraaobjs[i].uart) == MRAA_SUCCESS);
-                if(mraaobjs[i].type == MRAA_GENERIC_FIRMATA) {
-                    printf("add_subplatform %d, %s, %s\n",mraaobjs[i].id, "MRAA_GENERIC_FIRMATA", mraaobjs[i].uart);
-                }
-            }
-        }
-        free(mraaobjs);
-    }
 
 #if defined(USBPLAT)
     // Now detect sub platform, note this is not an else since we could be in
@@ -170,6 +157,25 @@ imraa_init()
 
 #if defined(FIRMATA)
     // look for USB id 8087:0aba -> genuino/arduino 101
+    const char* subplatform_lockfile = "/tmp/imraa.lock";
+    if (access(subplatform_lockfile, F_OK) != -1 ){
+        printf("detect lockfile, adding subplatform\n");
+        mraa_subplatform_lock_t *mraaobjs = readlockfile(subplatform_lockfile);
+        int i;
+        if (mraaobjs != NULL) {
+            for(i = 0; i < sizeof(mraaobjs); i++) {
+                if( mraaobjs[i].id != 0) {
+                    mraa_result_t subplatform_ready = (mraa_add_subplatform(mraaobjs[i].type, mraaobjs[i].uart) == MRAA_SUCCESS);
+                    if(mraaobjs[i].type == MRAA_GENERIC_FIRMATA) {
+                        printf("add_subplatform %d, %s, %s\n",mraaobjs[i].id, "MRAA_GENERIC_FIRMATA", mraaobjs[i].uart);
+                    }
+                }
+            }
+            free(mraaobjs);
+        }
+    } else {
+        printf("didn't detect lockfile, skipping adding subplatform\n");
+    }
 #endif
 
     // Look for IIO devices
@@ -920,7 +926,7 @@ readlockfile(const char* imraa_lock_file) {
     uint32_t subplat_num = 0;
     FILE* flock = fopen(imraa_lock_file, "r");
     if (flock == NULL) {
-        fprintf(stderr, "Failed to open configuration file\n");
+        fprintf(stderr, "Failed to open lock file\n");
         return NULL;
     }
     fseek(flock, 0, SEEK_END);
