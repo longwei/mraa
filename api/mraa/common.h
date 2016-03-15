@@ -78,6 +78,14 @@ mraa_result_t mraa_init() __attribute__((constructor));
 #endif
 
 /**
+ * Initialise MRAA from imraa
+ * 
+ * TODO
+ */
+mraa_result_t imraa_init();
+
+
+/**
  * De-Initilise MRAA
  *
  * This is not a strict requirement but useful to test memory leaks and for
@@ -278,6 +286,13 @@ int mraa_get_sub_platform_index(int pin_or_bus_id);
  *
  */
 mraa_result_t mraa_add_subplatform(mraa_platform_t subplatformtype, const char* uart_dev);
+
+/*
+ * read subplatform lock file
+ * caller is responsible to free return struct array
+ */
+
+struct mraa_subplatform_lock_t* mraa_read_lock_file(const char* imraa_lock_file);
 
 #ifdef __cplusplus
 }

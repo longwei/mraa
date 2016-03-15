@@ -40,6 +40,8 @@
 #include <fcntl.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdbool.h>
+#include <json-c/json.h>
 
 #include "mraa_internal.h"
 #include "firmata/firmata_mraa.h"
@@ -84,7 +86,18 @@ mraa_result_t __attribute__((constructor))
 mraa_init()
 {
     if (plat != NULL) {
-        return MRAA_SUCCESS;
+        return MRAA_ERROR_PLATFORM_ALREADY_INITIALISED;
+    } else {
+        return imraa_init();
+    }
+}
+
+mraa_result_t
+imraa_init()
+{
+    printf("imraa_int\n");
+    if (plat != NULL) {
+        return MRAA_ERROR_PLATFORM_ALREADY_INITIALISED;
     }
 
     uid_t proc_euid = geteuid();
@@ -144,6 +157,25 @@ mraa_init()
 
 #if defined(FIRMATA)
     // look for USB id 8087:0aba -> genuino/arduino 101
+    const char* subplatform_lockfile = "/tmp/imraa.lock";
+    if (access(subplatform_lockfile, F_OK) != -1 ){
+        printf("detect lockfile, adding subplatform\n");
+        mraa_subplatform_lock_t *mraaobjs = mraa_read_lock_file(subplatform_lockfile);
+        int i;
+        if (mraaobjs != NULL) {
+            for(i = 0; i < sizeof(mraaobjs); i++) {
+                if( mraaobjs[i].id != 0) {
+                    mraa_result_t subplatform_ready = (mraa_add_subplatform(mraaobjs[i].type, mraaobjs[i].uart) == MRAA_SUCCESS);
+                    if(mraaobjs[i].type == MRAA_GENERIC_FIRMATA) {
+                        printf("add_subplatform %d, %s, %s\n",mraaobjs[i].id, "MRAA_GENERIC_FIRMATA", mraaobjs[i].uart);
+                    }
+                }
+            }
+            free(mraaobjs);
+        }
+    } else {
+        printf("didn't detect lockfile, skipping adding subplatform\n");
+    }
 #endif
 
     // Look for IIO devices
@@ -883,4 +915,54 @@ mraa_add_subplatform(mraa_platform_t subplatformtype, const char* uart_dev)
 #endif
 
     return MRAA_ERROR_INVALID_PARAMETER;
+}
+
+
+struct mraa_subplatform_lock_t*
+mraa_read_lock_file(const char* imraa_lock_file) {
+    char* buffer = NULL;
+    long fsize;
+    int i = 0;
+    uint32_t subplat_num = 0;
+    FILE* flock = fopen(imraa_lock_file, "r");
+    if (flock == NULL) {
+        fprintf(stderr, "Failed to open lock file\n");
+        return NULL;
+    }
+    fseek(flock, 0, SEEK_END);
+    fsize = ftell(flock) + 1;
+    fseek(flock, 0, SEEK_SET);
+    buffer = (char*) calloc(fsize, sizeof(char));
+    if (buffer != NULL) {
+        fread(buffer, sizeof(char), fsize, flock);
+    }
+    json_object* jobj_lock = json_tokener_parse(buffer);
+
+    struct mraa_subplatform_lock_t *subplat_lock;
+
+    struct json_object* ioarray;
+    if (json_object_object_get_ex(jobj_lock, "Platform", &ioarray) == true &&
+        json_object_is_type(ioarray, json_type_array)) {
+        subplat_num = json_object_array_length(ioarray);
+        subplat_lock = malloc(subplat_num * sizeof(struct mraa_subplatform_lock_t));
+        for (i = 0; i < subplat_num; i++) {
+            struct json_object *ioobj = json_object_array_get_idx(ioarray, i);
+            json_object_object_foreach(ioobj, key, val) {
+                if (strcmp(key, "id") == 0) {
+                    subplat_lock[i].id = atoi(json_object_get_string(val));
+                } else if (strcmp(key, "type") == 0) {
+                    if(strcmp(json_object_get_string(val), "GENERIC_FIRMATA") == 0){
+                        subplat_lock[i].type = MRAA_GENERIC_FIRMATA;
+                    } else if (strcmp(json_object_get_string(val), "NULL_PLATFORM") == 0) {
+                        subplat_lock[i].type = MRAA_NULL_PLATFORM;
+                    }
+                } else if (strcmp(key,"uart") == 0) {
+                    subplat_lock[i].uart = json_object_get_string(val);
+                }
+            }
+        }
+    } else {
+        fprintf(stderr, "lockfile string incorrectly parsed\n");
+    }
+    return subplat_lock;
 }
