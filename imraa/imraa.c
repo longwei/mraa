@@ -222,10 +222,10 @@ imraa_handle_subplatform(struct json_object* jobj, bool force_update)
 {
     struct json_object* platform;
     int i, ionum;
-    const char* dfu_loc;
-    const char* lockfile_loc;
-    const char* flash_loc;
-    const char* usbserial;
+    const char* dfu_loc = NULL;
+    const char* lockfile_loc = NULL;
+    const char* flash_loc = NULL;
+    const char* usbserial = NULL;
 
     struct json_object* dfu_location;
     if (json_object_object_get_ex(jobj, "dfu-utils-location", &dfu_location) == true) {
@@ -246,6 +246,7 @@ imraa_handle_subplatform(struct json_object* jobj, bool force_update)
             fprintf(stderr, "lock file string incorrectly parsed\n");
         }
     }
+
     if (json_object_object_get_ex(jobj, "Platform", &platform) == true) {
         if (json_object_is_type(platform, json_type_array)) {
             ionum = json_object_array_length(platform);
@@ -265,6 +266,19 @@ imraa_handle_subplatform(struct json_object* jobj, bool force_update)
             fprintf(stderr, "platform string incorrectly parsed\n");
         }
     }
+    if (flash_loc == NULL || usbserial == NULL ) {
+        printf("conf didn't give image location or usb serial, skip flashing\n");
+        return;
+    }
+    if (!dfu_loc) {
+        dfu_loc = "/usr/bin";
+        printf("No dfu path found, using default path /usr/bin instead");
+    }
+    if (!lockfile_loc) {
+        lockfile_loc = "/tmp/imraa.lock";
+        printf("No lock path found, using default lock file /tmp/imraa.lock instead");
+    }
+
     // got flash? do flash
     if (access(lockfile_loc, F_OK) != -1 && force_update == false) {
         printf("already exist a lock file, skip flashing\n");
@@ -275,29 +289,26 @@ imraa_handle_subplatform(struct json_object* jobj, bool force_update)
         if(force_update) {
             fprintf(stdout, "**Caution: force update mode**\n");
         }
-        // dfu_loc = "/usr/bin";
+
         //TODO flash img checksum, and serialport validation?
         const char* detected_serialport = imraa_list_serialport();
         if (detected_serialport == NULL) {
-            printf("No subplatform detected, skip flashing\n");
+            printf("No subplatform detected, check USB connection, skip flashing\n");
             return;
         }
         if (strcmp(usbserial, "auto") != 0 && strcmp(usbserial, detected_serialport) != 0) {
             printf("given serial port didn't match detected serial port, skip flashing\n");
             return;
         }
-        detected_serialport = "/dev/ttyACM0";
-        if ( dfu_loc != NULL && flash_loc != NULL && usbserial != NULL) {
-            if (imraa_flash_101(dfu_loc, flash_loc, detected_serialport) == 0) {
-                imraa_write_lockfile(lockfile_loc, detected_serialport);
-            } else {
-                fprintf(stderr, "Flash failed, push master reset and try again\n");
-            }
+
+        if (imraa_flash_101(dfu_loc, flash_loc, detected_serialport) == 0) {
+            imraa_write_lockfile(lockfile_loc, detected_serialport);
         } else {
             fprintf(stderr, "invalid flashing paramenters, please check agian\n");
             fprintf(stderr, "DFU Util location: %s\n", dfu_loc);
             fprintf(stderr, "Flash Img location: %s\n", dfu_loc);
             fprintf(stderr, "USB Serial: %s\n", usbserial);
+            fprintf(stderr, "Flash failed, push master reset and try again\n");
         }
     }
 }
@@ -351,6 +362,7 @@ imraa_handle_IO(struct json_object* jobj)
                     if (r != MRAA_SUCCESS) {
                         mraa_result_print(r);
                     }
+                    mraa_gpio_close(gpio);
                 } else if (strcmp(mraa_io_obj[i].type, "i2c") == 0) {
                     mraa_i2c_context i2c = NULL;
                     if(mraa_io_obj[i].raw){
@@ -360,6 +372,7 @@ imraa_handle_IO(struct json_object* jobj)
                         printf("i2c init\n");
                         i2c = mraa_i2c_init(mraa_io_obj[i].index);
                     }
+                    mraa_i2c_stop(i2c);
                 } else if (strcmp(mraa_io_obj[i].type, "pwm") == 0) {
                     mraa_pwm_context pwm = NULL;
                     if(mraa_io_obj[i].raw){
@@ -373,6 +386,7 @@ imraa_handle_IO(struct json_object* jobj)
                     if (r != MRAA_SUCCESS) {
                         mraa_result_print(r);
                     }
+                    mraa_pwm_close(pwm);
                 } else if (strcmp(mraa_io_obj[i].type, "spi") == 0) {
                     mraa_spi_context spi = NULL;
                     if(mraa_io_obj[i].raw){
@@ -382,6 +396,7 @@ imraa_handle_IO(struct json_object* jobj)
                         printf("spi init\n");
                         spi = mraa_spi_init(mraa_io_obj[i].index);
                     }
+                    mraa_spi_stop(spi);
                 }  else if (strcmp(mraa_io_obj[i].type, "uart") == 0) {
                     mraa_uart_context uart = NULL;
                     if(mraa_io_obj[i].raw){
@@ -391,6 +406,7 @@ imraa_handle_IO(struct json_object* jobj)
                         printf("uart init\n");
                         uart = mraa_uart_init(mraa_io_obj[i].index);
                     }
+                    mraa_uart_stop(uart);
                 }
             }
         } else {
@@ -480,7 +496,10 @@ main(int argc, char** argv)
     fseek(fh, 0, SEEK_SET);
     buffer = calloc(fsize, sizeof(char));
     if (buffer != NULL) {
-        fread(buffer, sizeof(char), fsize, fh);
+        int result = fread(buffer, sizeof(char), fsize, fh);
+        if (result != fsize) {
+            printf("imraa conf reading error");
+        }
     } else {
         printf("imraa read_conf buffer can't allocated\n");
         exit(1);
